@@ -1,19 +1,16 @@
-#![feature(slice_as_chunks)]
-
 mod gmw;
 mod crypto;
 
-use gmw::ot_send;
 use tokio::net;
 
-use crate::{crypto::CryptoStream, gmw::{eval, ot_recv, Circuit, Gate}};
+use crypto::CryptoStream;
+use gmw::{Circuit, Gate};
 
 type GmwResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 const NUM_PARTIES: usize = 3;
 
-#[tokio::main]
-async fn main() -> GmwResult<()> {
+#[tokio::main] async fn main() -> GmwResult<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 2 {
         let id: usize = str::parse(&args[1])?;
@@ -48,13 +45,13 @@ async fn main() -> GmwResult<()> {
         for i in 0..inputs.len() {
             if i % 2 == 0 { inputs[i] = 1; }
         }
-        let outputs = eval(circuit, &mut wires, id, inputs, &mut parties).await?;
+        let outputs = circuit.eval(&mut wires, id, inputs, &mut parties).await?;
         println!("{:?}", outputs);
     } else { panic!("Invalid arguments"); }
     Ok(())
 }
 
-async fn crypto_test() -> GmwResult<()> {
+#[tokio::test] async fn ring_test() -> GmwResult<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 4 {
         let addr = format!("{}:{}", args[2], args[3]);
@@ -76,7 +73,7 @@ async fn crypto_test() -> GmwResult<()> {
     Ok(())
 }
 
-async fn ot_test() -> GmwResult<()> {
+#[tokio::test] async fn ot_test() -> GmwResult<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 5 {
         match args[1].as_str() {
@@ -86,7 +83,7 @@ async fn ot_test() -> GmwResult<()> {
                 let listener = net::TcpListener::bind(addr).await?;
                 let (stream, _) = listener.accept().await?;
                 let mut stream = CryptoStream::agree(stream).await?;
-                println!("{}", ot_recv(&mut stream, choice).await?);
+                println!("{}", stream.ot_recv(choice).await?);
             },
             _ => panic!("Invalid command"),
         }
@@ -98,7 +95,7 @@ async fn ot_test() -> GmwResult<()> {
                 let addr = format!("{}:{}", args[4], args[5]);
                 let stream = net::TcpStream::connect(addr).await?;
                 let mut stream = CryptoStream::agree(stream).await?;
-                ot_send(&mut stream, m0, m1).await?;
+                stream.ot_send(m0, m1).await?;
             },
             _ => panic!("Invalid command"),
         }
